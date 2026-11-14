@@ -10,10 +10,10 @@ import android.widget.RemoteViews
 import ru.dozvonka.app.R
 import ru.dozvonka.app.core.BellContent
 import ru.dozvonka.app.core.BellState
-import ru.dozvonka.app.core.toEpochMilli
 import ru.dozvonka.app.notify.BellNotification
 import ru.dozvonka.app.sched.BellUpdater
 import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /** Виджет 2×2: только таймер. */
 class SmallWidgetProvider : AppWidgetProvider() {
@@ -86,7 +86,7 @@ object WidgetRenderer {
     }
 
     private fun setCountdown(rv: RemoteViews, c: BellContent) {
-        val base = SystemClock.elapsedRealtime() + (c.end.toEpochMilli() - System.currentTimeMillis())
+        val base = SystemClock.elapsedRealtime() + (AppClock.realMillis(c.end) - System.currentTimeMillis())
         rv.setChronometer(R.id.chrono, base, null, true)
         rv.setChronometerCountDown(R.id.chrono, true)
     }

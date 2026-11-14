@@ -46,16 +46,19 @@ import ru.dozvonka.app.core.dayTitle
 import ru.dozvonka.app.core.formatCountdown
 import ru.dozvonka.app.core.hm
 import ru.dozvonka.app.data.Lesson
-import ru.dozvonka.app.data.Schedule
+import ru.dozvonka.app.data.Announcement
+import ru.dozvonka.app.data.RemoteConfig
+import ru.dozvonka.app.notify.Announcements
+import ru.dozvonka.app.prefs.AppClock
 import java.time.LocalDateTime
 
 /** Текущее время, обновляется ровно на каждой секунде. */
 @Composable
 fun rememberNow(): LocalDateTime {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    var now by remember { mutableStateOf(AppClock.now()) }
     LaunchedEffect(Unit) {
         while (true) {
-            val n = LocalDateTime.now()
+            val n = AppClock.now()
             now = n
             delay(1000L - n.nano / 1_000_000)
         }
@@ -64,15 +67,18 @@ fun rememberNow(): LocalDateTime {
 }
 
 @Composable
-fun TodayScreen(schedule: Schedule) {
+fun TodayScreen(config: RemoteConfig) {
     val c = LocalAppColors.current
     val now = rememberNow()
+    val schedule = config.schedule
+    val note = schedule.noteOn(now.toLocalDate())
+    val announcements = Announcements.active(config.announcements)
     val state = ScheduleEngine.stateAt(schedule, now)
     val content = BellContent.from(state)
     val isBreak = content?.isBreak == true
     val accent = if (isBreak) c.orange else c.blue
     val tint = if (isBreak) c.orangeTint else c.blueTint
-    val lessons = schedule.lessonsFor(now.dayOfWeek)
+    val lessons = schedule.lessonsOn(now.toLocalDate())
     val highlighted: Int? = when (state) {
         is BellState.InLesson -> state.lesson.number
         is BellState.OnBreak -> state.next.number
@@ -85,7 +91,14 @@ fun TodayScreen(schedule: Schedule) {
         contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (AppClock.isFake) {
+            item { Banner("Тестовое время — только на этом телефоне. Выключить: Настройки → админ-меню.", c.orangeTint, c.orange) }
+        }
         item { Header(now, content?.chip, accent, tint) }
+        if (note != null) {
+            item { Banner(note, c.orangeTint, c.orange) }
+        }
+        items(announcements, key = { "ann-" + it.id }) { a -> AnnouncementCard(a) }
 
         if (content != null) {
             item {
@@ -120,6 +133,40 @@ fun TodayScreen(schedule: Schedule) {
             val hot = lesson.number == highlighted
             val past = !hot && !lesson.end.isAfter(now.toLocalTime())
             LessonRow(lesson, highlighted = hot, past = past, accent = accent, tint = tint)
+        }
+    }
+}
+
+@Composable
+private fun Banner(text: String, bg: Color, fg: Color) {
+    Text(
+        text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = fg,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    )
+}
+
+@Composable
+private fun AnnouncementCard(a: Announcement) {
+    val c = LocalAppColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(c.card)
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.width(6.dp).height(40.dp).clip(RoundedCornerShape(3.dp)).background(c.orange))
+        Column(Modifier.weight(1f)) {
+            Text(a.title.ifBlank { "Объявление" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.text)
+            if (a.text.isNotBlank()) Text(a.text, fontSize = 14.sp, color = c.muted)
         }
     }
 }

@@ -44,7 +44,7 @@ object ScheduleEngine {
 
     fun stateAt(schedule: Schedule, now: LocalDateTime): BellState {
         val date = now.toLocalDate()
-        val lessons = schedule.lessonsFor(date.dayOfWeek)
+        val lessons = schedule.lessonsOn(date)
         if (lessons.isEmpty()) return BellState.DayOff(nextSchoolStart(schedule, date.plusDays(1)))
 
         val t = now.toLocalTime()
@@ -74,7 +74,7 @@ object ScheduleEngine {
     fun nextSchoolStart(schedule: Schedule, from: LocalDate): LocalDateTime? {
         for (d in 0L until 14L) {
             val day = from.plusDays(d)
-            val first = schedule.lessonsFor(day.dayOfWeek).firstOrNull() ?: continue
+            val first = schedule.lessonsOn(day).firstOrNull() ?: continue
             return day.atTime(first.start)
         }
         return null

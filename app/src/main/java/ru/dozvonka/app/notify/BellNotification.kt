@@ -15,10 +15,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import ru.dozvonka.app.R
 import ru.dozvonka.app.core.BellContent
-import ru.dozvonka.app.core.toEpochMilli
 import ru.dozvonka.app.prefs.Prefs
 import ru.dozvonka.app.ui.MainActivity
 import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /**
  * Уведомление с обратным отсчётом. Таймер тикает силами самой системы
@@ -92,7 +92,7 @@ object BellNotification {
     // ---------- Android 8–15 ----------
 
     private fun buildCompat(context: Context, c: BellContent, now: LocalDateTime, simple: Boolean): Notification {
-        val endMs = c.end.toEpochMilli()
+        val endMs = AppClock.realMillis(c.end)
         val nowMs = System.currentTimeMillis()
         val progress = (c.progress(now) * 1000).toInt()
 
@@ -124,7 +124,7 @@ object BellNotification {
     /** Своя вёрстка: крупный таймер, подпись, прогресс. */
     private fun views(context: Context, c: BellContent, layout: Int, progress: Int): RemoteViews {
         val rv = RemoteViews(context.packageName, layout)
-        val base = SystemClock.elapsedRealtime() + (c.end.toEpochMilli() - System.currentTimeMillis())
+        val base = SystemClock.elapsedRealtime() + (AppClock.realMillis(c.end) - System.currentTimeMillis())
         rv.setChronometer(R.id.chrono, base, null, true)
         rv.setChronometerCountDown(R.id.chrono, true)
         rv.setTextColor(R.id.chrono, accent(context, c))

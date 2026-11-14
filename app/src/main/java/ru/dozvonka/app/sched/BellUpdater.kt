@@ -7,7 +7,7 @@ import ru.dozvonka.app.data.ScheduleRepository
 import ru.dozvonka.app.notify.BellNotification
 import ru.dozvonka.app.prefs.Prefs
 import ru.dozvonka.app.widget.WidgetRenderer
-import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /**
  * Одна точка обновления: посмотреть на часы и расписание →
@@ -19,7 +19,7 @@ object BellUpdater {
     @Synchronized
     fun refresh(context: Context) {
         val app = context.applicationContext
-        val now = LocalDateTime.now()
+        val now = AppClock.now()
         val state = ScheduleEngine.stateAt(ScheduleRepository.get(app), now)
         val active = ScheduleEngine.isActive(state, now)
         val content = BellContent.from(state)

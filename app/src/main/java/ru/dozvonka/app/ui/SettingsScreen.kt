@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -32,11 +37,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import ru.dozvonka.app.BuildConfig
+import ru.dozvonka.app.admin.AdminPrefs
 import ru.dozvonka.app.notify.BellNotification
 import ru.dozvonka.app.oem.OemHelper
 import ru.dozvonka.app.prefs.Prefs
@@ -46,7 +55,7 @@ import ru.dozvonka.app.widget.SmallWidgetProvider
 import ru.dozvonka.app.widget.WideWidgetProvider
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenAdmin: () -> Unit) {
     val context = LocalContext.current
     val c = LocalAppColors.current
     val brand = remember { OemHelper.brand() }
@@ -161,7 +170,91 @@ fun SettingsScreen() {
         item {
             WidgetCard(context)
         }
+        item { VersionLine(onOpenAdmin) }
     }
+}
+
+/** Строка с версией. 7 нажатий подряд — вход в админ-меню (с PIN-кодом). */
+@Composable
+private fun VersionLine(onOpenAdmin: () -> Unit) {
+    val context = LocalContext.current
+    val c = LocalAppColors.current
+    var taps by remember { mutableIntStateOf(0) }
+    var lastTap by remember { mutableStateOf(0L) }
+    var askPin by remember { mutableStateOf(false) }
+
+    Text(
+        "До звонка · версия ${BuildConfig.VERSION_NAME}",
+        fontSize = 13.sp,
+        color = c.muted,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = null, indication = null) {
+                val t = System.currentTimeMillis()
+                taps = if (t - lastTap < 1500) taps + 1 else 1
+                lastTap = t
+                if (taps >= 7) {
+                    taps = 0
+                    askPin = true
+                }
+            }
+            .padding(vertical = 16.dp),
+    )
+
+    if (askPin) {
+        PinDialog(
+            creating = !AdminPrefs.hasPin(context),
+            onDismiss = { askPin = false },
+            onSubmit = { pin ->
+                if (!AdminPrefs.hasPin(context)) {
+                    AdminPrefs.setPin(context, pin)
+                    askPin = false
+                    onOpenAdmin()
+                    true
+                } else if (AdminPrefs.checkPin(context, pin)) {
+                    askPin = false
+                    onOpenAdmin()
+                    true
+                } else {
+                    false
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PinDialog(creating: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Boolean) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (creating) "Придумайте PIN админа" else "PIN админа") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (creating) Text("Минимум 4 цифры. Он защищает меню на этом телефоне.", fontSize = 14.sp)
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { v -> pin = v.filter { it.isDigit() }.take(12); error = null },
+                    singleLine = true,
+                    label = { Text("PIN") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    isError = error != null,
+                    supportingText = { error?.let { Text(it) } },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                when {
+                    pin.length < 4 -> error = "Слишком короткий"
+                    !onSubmit(pin) -> error = "Неверный PIN"
+                }
+            }) { Text("Войти") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
 }
 
 @Composable

@@ -2,6 +2,9 @@ name: Сборка APK
 
 on:
   push:
+    # Админ меняет расписание (config/) — это не повод пересобирать приложение.
+    paths-ignore:
+      - "config/**"
   workflow_dispatch:
 
 permissions:
@@ -32,12 +35,22 @@ jobs:
           name: DoZvonka-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      - name: Опубликовать как релиз (ссылка для друзей)
+      # Каждая сборка — отдельный релиз (так копится статистика скачиваний).
+      # Постоянная ссылка: https://github.com/<owner>/<repo>/releases/latest/download/DoZvonka.apk
+      - name: Опубликовать релиз
         if: github.ref == 'refs/heads/main'
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk DoZvonka.apk
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest DoZvonka.apk --title "До звонка — последняя сборка" --notes "Собрано автоматически из ${GITHUB_SHA::7}"
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          gh release create "v${VERSION}-${GITHUB_RUN_NUMBER}" DoZvonka.apk \
+            --title "До звонка ${VERSION} (сборка ${GITHUB_RUN_NUMBER})" \
+            --notes "Собрано автоматически из ${GITHUB_SHA::7}" --latest
+          # Старая ссылка .../releases/download/latest/DoZvonka.apk тоже продолжает работать
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest DoZvonka.apk --clobber
+          else
+            gh release create latest DoZvonka.apk --title "До звонка — последняя сборка" --notes "Старая ссылка" --latest=false
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
 

@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,6 +21,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +32,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import ru.dozvonka.app.R
+import ru.dozvonka.app.data.RemoteSync
 import ru.dozvonka.app.data.ScheduleRepository
 import ru.dozvonka.app.sched.BellUpdater
 
@@ -42,8 +49,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Открыли приложение — заодно всё пересчитали и перезавели будильники.
+        // Открыли приложение — заодно всё пересчитали и перезавели будильники…
         BellUpdater.refresh(this)
+        // …и в фоне проверили, нет ли нового расписания или объявлений.
+        lifecycleScope.launch(Dispatchers.IO) { RemoteSync.sync(applicationContext) }
     }
 }
 
@@ -59,8 +68,9 @@ private val tabs = listOf(
 private fun AppRoot() {
     val context = LocalContext.current
     val c = LocalAppColors.current
-    val schedule = remember { ScheduleRepository.get(context) }
+    val config by remember { ScheduleRepository.flow(context) }.collectAsState()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var adminOpen by rememberSaveable { mutableStateOf(false) }
 
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         BellUpdater.refresh(context)
@@ -72,6 +82,12 @@ private fun AppRoot() {
         ) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    if (adminOpen) {
+        BackHandler { adminOpen = false }
+        AdminScreen(onClose = { adminOpen = false })
+        return
     }
 
     Scaffold(
@@ -98,9 +114,9 @@ private fun AppRoot() {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                0 -> TodayScreen(schedule)
-                1 -> ScheduleScreen(schedule)
-                else -> SettingsScreen()
+                0 -> TodayScreen(config)
+                1 -> ScheduleScreen(config.schedule)
+                else -> SettingsScreen(onOpenAdmin = { adminOpen = true })
             }
         }
     }

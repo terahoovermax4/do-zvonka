@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.dozvonka.app.core.shortRu
 import ru.dozvonka.app.data.Schedule
+import ru.dozvonka.app.prefs.AppClock
 import java.time.DayOfWeek
-import java.time.LocalDate
 
 private val schoolDays = listOf(
     DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
@@ -39,7 +39,7 @@ private val schoolDays = listOf(
 @Composable
 fun ScheduleScreen(schedule: Schedule) {
     val c = LocalAppColors.current
-    val today = LocalDate.now().dayOfWeek
+    val today = AppClock.now().dayOfWeek
     var selected by rememberSaveable { mutableStateOf(if (today == DayOfWeek.SUNDAY) DayOfWeek.MONDAY else today) }
     val lessons = schedule.lessonsFor(selected)
 

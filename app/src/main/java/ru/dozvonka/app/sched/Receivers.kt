@@ -8,6 +8,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import ru.dozvonka.app.data.RemoteSync
 import java.util.concurrent.TimeUnit
 
 /** Сработал будильник (звонок или плановое обновление). */
@@ -24,9 +25,10 @@ class SystemEventsReceiver : BroadcastReceiver() {
     }
 }
 
-/** Страховка раз в 15 минут через WorkManager. */
+/** Раз в 15 минут: свежее расписание с GitHub + сверка таймера. */
 class BellWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
+        RemoteSync.sync(applicationContext)
         BellUpdater.refresh(applicationContext)
         return Result.success()
     }

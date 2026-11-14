@@ -3,6 +3,8 @@
     <string name="app_name">До звонка</string>
     <string name="channel_name">Таймер до звонка</string>
     <string name="channel_desc">Показывает на экране блокировки, сколько осталось до звонка</string>
+    <string name="channel_ann_name">Объявления</string>
+    <string name="channel_ann_desc">Сообщения от админа: замены, сокращённые дни и т.д.</string>
     <string name="widget_small_name">До звонка — таймер</string>
     <string name="widget_wide_name">До звонка — таймер и уроки</string>
     <string name="widget_small_desc">Сколько осталось до звонка</string>

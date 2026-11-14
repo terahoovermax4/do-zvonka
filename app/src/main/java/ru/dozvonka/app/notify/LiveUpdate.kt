@@ -6,8 +6,8 @@ import android.os.Bundle
 import androidx.annotation.RequiresApi
 import ru.dozvonka.app.R
 import ru.dozvonka.app.core.BellContent
-import ru.dozvonka.app.core.toEpochMilli
 import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /**
  * Android 16+: «Live Update» — уведомление закрепляется наверху,
@@ -22,7 +22,7 @@ object LiveUpdate {
 
     fun build(context: Context, c: BellContent, now: LocalDateTime): Notification {
         val accent = BellNotification.accent(context, c)
-        val endMs = c.end.toEpochMilli()
+        val endMs = AppClock.realMillis(c.end)
         val nowMs = System.currentTimeMillis()
 
         val style = Notification.ProgressStyle()

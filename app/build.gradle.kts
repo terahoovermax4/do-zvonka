@@ -14,8 +14,8 @@ android {
         applicationId = "ru.dozvonka.app"
         minSdk = 26          // Android 8.0 и новее
         targetSdk = 36       // Android 16
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
     }
 
     // Постоянный ключ подписи: чтобы новые версии ставились поверх старых,
@@ -43,6 +43,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -66,4 +67,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+    // В обычных JVM-тестах нет настоящего org.json из Android — подключаем отдельно.
+    testImplementation("org.json:json:20240303")
 }

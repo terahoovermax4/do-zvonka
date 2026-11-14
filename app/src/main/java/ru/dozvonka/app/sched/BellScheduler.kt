@@ -7,8 +7,8 @@ import android.content.Intent
 import android.os.Build
 import ru.dozvonka.app.core.BellState
 import ru.dozvonka.app.core.ScheduleEngine
-import ru.dozvonka.app.core.toEpochMilli
 import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /** Будильники: точный — ровно на звонок, и «подкрутка» прогресса раз в 5 минут во время уроков. */
 object BellScheduler {
@@ -25,7 +25,7 @@ object BellScheduler {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
 
         // +1 секунда, чтобы точно оказаться уже «после» звонка.
-        val at = ScheduleEngine.nextWakeup(state, now).toEpochMilli() + 1_000
+        val at = AppClock.realMillis(ScheduleEngine.nextWakeup(state, now)) + 1_000
         val bell = pending(context, RC_BELL)
         try {
             if (canExact(context)) {

@@ -14,7 +14,7 @@ import ru.dozvonka.app.core.ScheduleEngine
 import ru.dozvonka.app.data.ScheduleRepository
 import ru.dozvonka.app.notify.BellNotification
 import ru.dozvonka.app.prefs.Prefs
-import java.time.LocalDateTime
+import ru.dozvonka.app.prefs.AppClock
 
 /**
  * «Усиленный режим». Работает только во время уроков и держит то же самое уведомление.
@@ -34,7 +34,7 @@ class BellForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val now = LocalDateTime.now()
+        val now = AppClock.now()
         val state = ScheduleEngine.stateAt(ScheduleRepository.get(this), now)
         val content = BellContent.from(state)
         val active = content != null && ScheduleEngine.isActive(state, now) && Prefs.notificationEnabled(this)
