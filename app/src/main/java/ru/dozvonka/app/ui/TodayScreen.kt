@@ -264,7 +264,7 @@ fun LessonRow(lesson: Lesson, highlighted: Boolean, past: Boolean, accent: Color
         }
         Column(Modifier.weight(1f)) {
             Text(lesson.subject, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (past) c.muted else c.text)
-            Text(lesson.roomLabel, fontSize = 12.sp, color = c.muted)
+            if (lesson.roomLabel.isNotBlank()) Text(lesson.roomLabel, fontSize = 12.sp, color = c.muted)
         }
         Text(
             "${lesson.start.hm()}–${lesson.end.hm()}",

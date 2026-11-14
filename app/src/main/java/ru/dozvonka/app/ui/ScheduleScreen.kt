@@ -52,18 +52,6 @@ fun ScheduleScreen(schedule: Schedule) {
             Text("Расписание", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = c.text)
         }
         item {
-            Text(
-                "Сейчас стоит тестовое расписание. Настоящее добавим в следующей версии.",
-                fontSize = 14.sp,
-                color = c.muted,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(c.card)
-                    .padding(14.dp),
-            )
-        }
-        item {
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),

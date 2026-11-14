@@ -1,5 +1,6 @@
 package ru.dozvonka.app.core
 
+import ru.dozvonka.app.data.joinParts
 import java.time.Duration
 import java.time.LocalDateTime
 
@@ -40,17 +41,17 @@ data class BellContent(
                 val breakMin = next?.let { Duration.between(l.end, it.start).toMinutes() }
                 BellContent(
                     isBreak = false,
-                    chip = "${l.number} урок из ${state.total}",
+                    chip = if (l.number == 0) "Нулевой урок" else "${l.number} урок из ${state.lastNumber}",
                     title = "${l.number} урок · ${l.subject}",
-                    details = "${l.roomLabel} · ${l.start.hm()}–${l.end.hm()}",
+                    details = joinParts(l.roomLabel, "${l.start.hm()}–${l.end.hm()}"),
                     countdownLabel = if (next != null) "до перемены" else "до конца уроков",
                     nextTitle = if (next != null) "Перемена $breakMin мин" else "Домой",
-                    nextSub = if (next != null) "потом ${next.number} урок · ${next.subject}, ${next.roomLabel}"
+                    nextSub = if (next != null) "потом " + joinParts("${next.number} урок", next.subject, next.roomLabel)
                     else "это последний урок",
                     nextLine = if (next != null) "Дальше: перемена $breakMin мин, потом ${next.subject}"
                     else "Это последний урок",
-                    nowShort = "${l.subject} · ${l.room}",
-                    nextShort = next?.let { "${it.subject} · ${it.room}" } ?: "Домой",
+                    nowShort = l.subjectWithRoom,
+                    nextShort = next?.subjectWithRoom ?: "Домой",
                     start = state.startsAt,
                     end = state.endsAt,
                 )
@@ -66,10 +67,10 @@ data class BellContent(
                     details = "${state.previous.end.hm()}–${n.start.hm()} · $min мин",
                     countdownLabel = "до урока",
                     nextTitle = "${n.number} урок · ${n.subject}",
-                    nextSub = "${n.roomLabel} · ${n.start.hm()}–${n.end.hm()}",
-                    nextLine = "Дальше: ${n.number} урок · ${n.subject}, ${n.roomLabel}",
+                    nextSub = joinParts(n.roomLabel, "${n.start.hm()}–${n.end.hm()}"),
+                    nextLine = "Дальше: " + joinParts("${n.number} урок", n.subject, n.roomLabel),
                     nowShort = "Перемена",
-                    nextShort = "${n.subject} · ${n.room}",
+                    nextShort = n.subjectWithRoom,
                     start = state.startsAt,
                     end = state.endsAt,
                 )
@@ -81,13 +82,13 @@ data class BellContent(
                     isBreak = true,
                     chip = "Скоро уроки",
                     title = "До начала уроков",
-                    details = "1 урок в ${f.start.hm()}",
+                    details = "${f.number} урок в ${f.start.hm()}",
                     countdownLabel = "до первого урока",
                     nextTitle = "${f.number} урок · ${f.subject}",
-                    nextSub = "${f.roomLabel} · ${f.start.hm()}–${f.end.hm()}",
-                    nextLine = "Первый урок: ${f.subject}, ${f.roomLabel}",
+                    nextSub = joinParts(f.roomLabel, "${f.start.hm()}–${f.end.hm()}"),
+                    nextLine = "Первый урок: " + joinParts(f.subject, f.roomLabel),
                     nowShort = "Перед уроками",
-                    nextShort = "${f.subject} · ${f.room}",
+                    nextShort = f.subjectWithRoom,
                     start = state.startsAt.minusMinutes(ScheduleEngine.SHOW_BEFORE_MINUTES),
                     end = state.startsAt,
                 )

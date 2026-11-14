@@ -14,8 +14,19 @@ android {
         applicationId = "ru.dozvonka.app"
         minSdk = 26          // Android 8.0 и новее
         targetSdk = 36       // Android 16
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
+    }
+
+    // Постоянный ключ подписи: чтобы новые версии ставились поверх старых,
+    // где бы ни собирали (у себя или на GitHub).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {

@@ -14,7 +14,8 @@ sealed interface BellState {
     /** Идёт урок. [next] = null, если это последний урок. */
     data class InLesson(
         val lesson: Lesson,
-        val total: Int,
+        /** Номер последнего урока дня (для «3 урок из 6»). */
+        val lastNumber: Int,
         val startsAt: LocalDateTime,
         val endsAt: LocalDateTime,
         val next: Lesson?,
@@ -56,7 +57,7 @@ object ScheduleEngine {
             if (t < lesson.end) {
                 return BellState.InLesson(
                     lesson = lesson,
-                    total = lessons.size,
+                    lastNumber = lessons.last().number,
                     startsAt = date.atTime(lesson.start),
                     endsAt = date.atTime(lesson.end),
                     next = next,
