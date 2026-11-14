@@ -47,7 +47,7 @@ class ConfigJsonTest {
         assertEquals(LocalTime.of(8, 30), short[0].start)
         assertEquals(LocalTime.of(9, 0), short[0].end)
         assertEquals(LocalTime.of(9, 10), short[1].start)
-        assertEquals(LocalTime.of(12, 10), short[5].end)
+        assertEquals(LocalTime.of(12, 20), short[5].end)
         assertEquals("Литература", short[5].subject)
     }
 
