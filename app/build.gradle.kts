@@ -14,8 +14,8 @@ android {
         applicationId = "ru.dozvonka.app"
         minSdk = 26          // Android 8.0 и новее
         targetSdk = 36       // Android 16
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     // Постоянный ключ подписи: чтобы новые версии ставились поверх старых,
@@ -27,11 +27,21 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Тот же ключ, что у прошлых версий, — обновление ставится поверх.
+        create("release") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        // «Боевая» сборка: код сжат и оптимизирован (R8), лишние ресурсы выброшены.
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

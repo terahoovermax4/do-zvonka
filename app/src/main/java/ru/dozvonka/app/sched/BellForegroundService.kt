@@ -81,7 +81,7 @@ class BellForegroundService : Service() {
     }
 
     companion object {
-        private const val TICK_MS = 60_000L
+        private const val TICK_MS = 2 * 60_000L
 
         @Volatile
         var running = false

@@ -22,10 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import ru.dozvonka.app.core.BellContent
 import ru.dozvonka.app.core.BellState
@@ -52,15 +56,21 @@ import ru.dozvonka.app.notify.Announcements
 import ru.dozvonka.app.prefs.AppClock
 import java.time.LocalDateTime
 
-/** Текущее время, обновляется ровно на каждой секунде. */
+/**
+ * Тикающие часы: меняются ровно на каждой секунде, но только пока экран на виду.
+ * Приложение свернули — тиканье полностью останавливается.
+ */
 @Composable
-fun rememberNow(): LocalDateTime {
-    var now by remember { mutableStateOf(AppClock.now()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            val n = AppClock.now()
-            now = n
-            delay(1000L - n.nano / 1_000_000)
+fun rememberNowState(): State<LocalDateTime> {
+    val now = remember { mutableStateOf(AppClock.now()) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                val n = AppClock.now()
+                now.value = n
+                delay(1000L - n.nano / 1_000_000)
+            }
         }
     }
     return now
@@ -69,20 +79,24 @@ fun rememberNow(): LocalDateTime {
 @Composable
 fun TodayScreen(config: RemoteConfig) {
     val c = LocalAppColors.current
-    val now = rememberNow()
     val schedule = config.schedule
-    val note = schedule.noteOn(now.toLocalDate())
-    val announcements = Announcements.active(config.announcements)
-    val state = ScheduleEngine.stateAt(schedule, now)
-    val content = BellContent.from(state)
+    val nowState = rememberNowState()
+    // Экран целиком перерисовывается раз в минуту или на звонке, а не каждую секунду:
+    // секунды читают только цифры таймера и кольцо.
+    val now by remember { derivedStateOf { nowState.value.withSecond(0).withNano(0) } }
+    val state by remember(schedule) { derivedStateOf { ScheduleEngine.stateAt(schedule, nowState.value) } }
+    val content = remember(state) { BellContent.from(state) }
+    val today = now.toLocalDate()
+    val note = remember(schedule, today) { schedule.noteOn(today) }
+    val announcements = remember(config.announcements, today) { Announcements.active(config.announcements) }
     val isBreak = content?.isBreak == true
     val accent = if (isBreak) c.orange else c.blue
     val tint = if (isBreak) c.orangeTint else c.blueTint
-    val lessons = schedule.lessonsOn(now.toLocalDate())
-    val highlighted: Int? = when (state) {
-        is BellState.InLesson -> state.lesson.number
-        is BellState.OnBreak -> state.next.number
-        is BellState.BeforeSchool -> state.first.number
+    val lessons = remember(schedule, today) { schedule.lessonsOn(today) }
+    val highlighted: Int? = when (val st = state) {
+        is BellState.InLesson -> st.lesson.number
+        is BellState.OnBreak -> st.next.number
+        is BellState.BeforeSchool -> st.first.number
         else -> null
     }
 
@@ -101,14 +115,7 @@ fun TodayScreen(config: RemoteConfig) {
         items(announcements, key = { "ann-" + it.id }) { a -> AnnouncementCard(a) }
 
         if (content != null) {
-            item {
-                CountdownRing(
-                    progress = content.progress(now),
-                    countdown = formatCountdown(content.remaining(now)),
-                    label = content.countdownLabel,
-                    accent = accent,
-                )
-            }
+            item { CountdownRing(content, nowState, accent) }
             item { NowNextCard(content, accent) }
         } else {
             item {
@@ -195,8 +202,10 @@ private fun Header(now: LocalDateTime, chip: String?, accent: Color, tint: Color
 }
 
 @Composable
-private fun CountdownRing(progress: Float, countdown: String, label: String, accent: Color) {
+private fun CountdownRing(content: BellContent, now: State<LocalDateTime>, accent: Color) {
     val c = LocalAppColors.current
+    val countdown by remember(content) { derivedStateOf { formatCountdown(content.remaining(now.value)) } }
+    val label = content.countdownLabel
     Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.size(232.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
@@ -204,6 +213,8 @@ private fun CountdownRing(progress: Float, countdown: String, label: String, acc
                 val topLeft = Offset(stroke / 2, stroke / 2)
                 val arc = Size(size.width - stroke, size.height - stroke)
                 drawArc(c.track, 0f, 360f, false, topLeft = topLeft, size = arc, style = Stroke(stroke))
+                // Время читается прямо при рисовании: кольцо перерисовывается без пересборки экрана.
+                val progress = content.progress(now.value)
                 drawArc(
                     accent, -90f, 360f * progress, false,
                     topLeft = topLeft, size = arc,

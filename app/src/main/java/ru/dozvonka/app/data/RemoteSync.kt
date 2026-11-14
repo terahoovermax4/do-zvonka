@@ -19,19 +19,39 @@ object Repo {
  * Работает при открытии приложения и раз в 15 минут в фоне.
  */
 object RemoteSync {
+    /** Не чаще раза в 2 минуты (при частом открытии приложения). */
+    private const val MIN_INTERVAL_MS = 2 * 60_000L
+
+    @Volatile
+    private var lastSyncAt = 0L
 
     private fun urls(): List<String> {
-        val bust = System.currentTimeMillis() / 60_000 // не чаще раза в минуту — в обход кэша
+        val bust = System.currentTimeMillis() / 60_000 // не чаще раза в минуту — в обход кэша CDN
         return listOf(
             "https://raw.githubusercontent.com/${Repo.OWNER}/${Repo.NAME}/${Repo.BRANCH}/${Repo.CONFIG_PATH}?t=$bust",
             "https://api.github.com/repos/${Repo.OWNER}/${Repo.NAME}/contents/${Repo.CONFIG_PATH}?ref=${Repo.BRANCH}",
         )
     }
 
+    private sealed interface Fetch {
+        data class Body(val text: String, val etag: String?) : Fetch
+        data object NotModified : Fetch
+    }
+
     /** true — расписание или объявления изменились. */
-    fun sync(context: Context): Boolean {
+    fun sync(context: Context, force: Boolean = false): Boolean {
         val app = context.applicationContext
-        val text = urls().firstNotNullOfOrNull { fetch(it) } ?: return false
+        val t = System.currentTimeMillis()
+        if (!force && t - lastSyncAt < MIN_INTERVAL_MS) return false
+        lastSyncAt = t
+
+        val prefs = app.getSharedPreferences("sync", Context.MODE_PRIVATE)
+        val etag = prefs.getString("etag", null)
+        // Файл не менялся — GitHub ответит «304» без тела, трафик почти нулевой.
+        val result = urls().firstNotNullOfOrNull { fetch(it, etag) } ?: return false
+        if (result is Fetch.NotModified) return false
+        result as Fetch.Body
+        val text = result.text
         val fresh = runCatching { ConfigJson.parse(text) }.getOrNull() ?: return false
 
         val old = ScheduleRepository.config(app)
@@ -40,11 +60,12 @@ object RemoteSync {
             ScheduleRepository.save(app, text, fresh)
             BellUpdater.refresh(app)
         }
+        prefs.edit().putString("etag", result.etag).apply()
         Announcements.notifyNew(app, fresh.announcements)
         return changed
     }
 
-    private fun fetch(url: String): String? = try {
+    private fun fetch(url: String, etag: String?): Fetch? = try {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.connectTimeout = 10_000
@@ -52,7 +73,12 @@ object RemoteSync {
             c.useCaches = false
             c.setRequestProperty("Accept", "application/vnd.github.raw")
             c.setRequestProperty("User-Agent", "DoZvonka-Android")
-            if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else null
+            if (etag != null) c.setRequestProperty("If-None-Match", etag)
+            when (c.responseCode) {
+                200 -> Fetch.Body(c.inputStream.bufferedReader().use { it.readText() }, c.getHeaderField("ETag"))
+                304 -> Fetch.NotModified
+                else -> null
+            }
         } finally {
             c.disconnect()
         }

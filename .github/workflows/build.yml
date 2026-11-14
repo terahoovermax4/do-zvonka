@@ -26,21 +26,56 @@ jobs:
       - name: Сборка и тесты
         run: |
           set -o pipefail
+          trap 'cp build.log /tmp/build.log 2>/dev/null || true' EXIT
           chmod +x gradlew
-          ./gradlew assembleDebug testDebugUnitTest --stacktrace 2>&1 | tee build.log
+          ./gradlew assembleRelease testDebugUnitTest --stacktrace 2>&1 | tee build.log
+          ls -la app/build/outputs/apk/release/
 
       - name: APK для скачивания
         uses: actions/upload-artifact@v4
         with:
           name: DoZvonka-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/release/*.apk
+
+      # Проверка на настоящем Android (эмулятор): не падает ли, плюс скриншоты.
+      - name: Включить KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Проверка на эмуляторе Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash .github/smoke.sh
+
+      - name: Сохранить скриншоты
+        if: always()
+        run: |
+          [ -d screens ] || exit 0
+          cp -r screens /tmp/screens
+          git config user.name "build-bot"
+          git config user.email "build-bot@users.noreply.github.com"
+          git stash -u -q || true
+          git checkout --orphan screens
+          git rm -rf --quiet . || true
+          cp -r /tmp/screens/* .
+          git add -A
+          git commit -q -m "Скриншоты ${GITHUB_SHA::7}"
+          git push -f origin screens
 
       # Каждая сборка — отдельный релиз (так копится статистика скачиваний).
       # Постоянная ссылка: https://github.com/<owner>/<repo>/releases/latest/download/DoZvonka.apk
       - name: Опубликовать релиз
         if: github.ref == 'refs/heads/main'
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk DoZvonka.apk
+          cp app/build/outputs/apk/release/app-release.apk DoZvonka.apk
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           gh release create "v${VERSION}-${GITHUB_RUN_NUMBER}" DoZvonka.apk \
             --title "До звонка ${VERSION} (сборка ${GITHUB_RUN_NUMBER})" \
@@ -60,10 +95,10 @@ jobs:
         run: |
           git config user.name "build-bot"
           git config user.email "build-bot@users.noreply.github.com"
-          cp build.log /tmp/build.log || echo "лог не создан" > /tmp/build.log
+          git stash -u -q || true
           git checkout --orphan build-logs
           git rm -rf --quiet . || true
-          cp /tmp/build.log build.log
+          cp /tmp/build.log build.log 2>/dev/null || echo "Сборка прошла, упала проверка на эмуляторе — см. ветку screens (smoke.log)" > build.log
           git add build.log
           git commit -m "Лог сборки ${GITHUB_SHA::7}"
           git push -f origin build-logs

@@ -14,7 +14,7 @@ import ru.dozvonka.app.prefs.AppClock
 object BellScheduler {
     private const val RC_BELL = 10
     private const val RC_REFRESH = 11
-    private const val REFRESH_MS = 5 * 60_000L
+    private const val REFRESH_MS = 5 * 60_000L // только чтобы двигалась полоска прогресса
 
     fun canExact(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true
@@ -38,7 +38,8 @@ object BellScheduler {
         }
 
         val refresh = pending(context, RC_REFRESH)
-        if (active) {
+        // Если работает усиленный режим, он сам обновляет прогресс — лишний будильник не нужен.
+        if (active && !BellForegroundService.running) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + REFRESH_MS, refresh)
         } else {
             am.cancel(refresh)
