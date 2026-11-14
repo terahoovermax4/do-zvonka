@@ -58,9 +58,13 @@ sleep 5; shot 4-break
 tap_text "Расписание"; sleep 3; shot 5-schedule
 tap_text "Настройки"; sleep 3; shot 6-settings
 
-# 4. Экран блокировки с уведомлением
-adb shell input keyevent KEYCODE_SLEEP; sleep 2
+# 4. Экран блокировки (ставим PIN, иначе блокировки нет) — виден ли таймер
+adb shell am start -W -n $PKG/.ui.MainActivity >/dev/null; sleep 1
+tap_text "Сегодня"; sleep 1
+adb shell locksettings set-pin 1111 >/dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_SLEEP; sleep 3
 adb shell input keyevent KEYCODE_WAKEUP; sleep 3; shot 7-lockscreen
+adb shell locksettings clear --old 1111 >/dev/null 2>&1 || true
 
 if crashed; then echo "ПАДЕНИЕ:"; cat screens/crash.txt; fail=1; fi
 adb shell dumpsys meminfo $PKG | grep -E "TOTAL PSS|TOTAL:" > screens/memory.txt || true

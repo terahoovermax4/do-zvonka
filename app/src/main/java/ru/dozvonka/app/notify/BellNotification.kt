@@ -103,15 +103,22 @@ object BellNotification {
             .setColor(accent(context, c))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setShowWhen(true)
-            .setWhen(endMs)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(openApp(context))
             .setTimeoutAfter((endMs - nowMs).coerceAtLeast(0) + GRACE_MS)
-            .setProgress(1000, progress, false)
+
+        if (simple) {
+            // Системный вид: таймер в шапке и стандартная полоска.
+            b.setShowWhen(true)
+                .setWhen(endMs)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setProgress(1000, progress, false)
+        } else {
+            // Своя вёрстка уже содержит крупный таймер и полоску — системные не дублируем.
+            b.setShowWhen(false)
+        }
 
         if (!simple) {
             b.setStyle(NotificationCompat.DecoratedCustomViewStyle())
